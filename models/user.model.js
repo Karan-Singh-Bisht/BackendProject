@@ -53,6 +53,7 @@ userSchema.pre("save", async function (next) {
 }); //() => {}: do not use this method for callback bcuz it does not have this.
 
 userSchema.methods.isPasswordCorrect = async function (password) {
+  //method
   return await bcrypt.compare(password, this.password);
 };
 
