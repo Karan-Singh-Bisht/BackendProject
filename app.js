@@ -19,6 +19,12 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(cookieParser());
 
+//routes
+const userRouter = require("./routes/user.routes.js");
+
+//routes declaration
+app.use("/api/v1/users", userRouter);
+
 let port = process.env.PORT || 8000;
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
