@@ -3,6 +3,7 @@ const userModel = require("../models/user.model.js");
 const apiError = require("../utils/apiError.js");
 const uploadOnCloudinary = require("../utils/cloudinary.js");
 const apiResponse = require("../utils/apiResponse.js");
+const jwt = require("jsonwebtoken");
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -148,4 +149,48 @@ module.exports.logOutUser = asyncHandler(async (req, res) => {
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
     .json(new apiResponse(200, {}, "User logged Out"));
+});
+
+module.exports.refreshAccessToken = asyncHandler(async (req, res) => {
+  try {
+    const incomingRefreshToken =
+      req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!incomingRefreshToken) {
+      throw new apiError(401, "Unauthorized Request");
+    }
+
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const user = await userModel.findById(decodedToken?._id);
+    if (!user) {
+      throw new apiError(401, "Invlaid Refresh Token");
+    }
+
+    if (incomingRefreshToken !== user?.refreshToken) {
+      throw new apiError(401, "Invalid Refresh token");
+    }
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { accessToken, newRefreshToken } =
+      await generateAccessAndRefreshTokens(user._id);
+
+    return res
+      .status(200)
+      .cookies("accessToken", accessToken, options)
+      .cookies("refreshToken", newRefreshToken, options)
+      .json({
+        success: true,
+        message: "Access token refreshed successfully",
+      });
+  } catch (err) {
+    throw new apiError(500, "Internal Server Error!");
+  }
 });
