@@ -1,4 +1,4 @@
-const asyncHandler = require("../utils/asyncHandler");
+const asyncHandler = require("../utils/asyncHandler.js");
 const userModel = require("../models/user.model.js");
 const apiError = require("../utils/apiError.js");
 const uploadOnCloudinary = require("../utils/cloudinary.js");
@@ -6,7 +6,8 @@ const apiResponse = require("../utils/apiResponse.js");
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
-    const user = userModel.findById(userId);
+    console.log(userId);
+    const user = await userModel.findById(userId);
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
@@ -85,12 +86,16 @@ module.exports.loginUser = asyncHandler(async (req, res) => {
   //send tokens through cookies
   //login
 
-  const { email, username, password } = req.body;
-  if (!(username || email)) {
-    throw new apiError("Email or username are required", 400);
+  const { email, userName, password } = req.body;
+  console.log(email);
+  console.log(userName);
+  console.log(password);
+  if (!userName && !email) {
+    //agar dono hi nhi hai tab ye execute hoga
+    throw new apiError("Email or username are required", 401);
   }
 
-  const user = await userModel.findOne({ $or: [{ email }, { username }] });
+  const user = await userModel.findOne({ $or: [{ email }, { userName }] });
   if (!user) {
     throw new apiError(404, "User does not exist!");
   }
@@ -112,7 +117,7 @@ module.exports.loginUser = asyncHandler(async (req, res) => {
     secure: true,
   };
 
-  return response
+  return res
     .status(200)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
