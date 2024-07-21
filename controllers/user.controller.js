@@ -194,3 +194,87 @@ module.exports.refreshAccessToken = asyncHandler(async (req, res) => {
     throw new apiError(500, "Internal Server Error!");
   }
 });
+
+// Routes to be made
+
+module.exports.changeUserPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const userId = req.user?._id;
+  const user = await userModel.findById(userId);
+  console.log(user);
+  if (!user) {
+    throw new apiError(401, "User does not exist");
+  }
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+  if (!isPasswordCorrect) {
+    throw new apiError(401, "Unauthorized access!");
+  } else {
+    user.password = newPassword;
+    await user.save({ validateBeforeSave: false });
+    return res.status(200).json({ success: true, message: "Password changed" });
+  }
+});
+
+module.exports.getCurrentUser = asyncHandler(async (req, res) => {
+  return res.status(200).json(200, req.user, "Current User");
+});
+
+module.exports.updateUserInfo = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body;
+  if (!fullName || !email) {
+    throw new apiError("All fields are required", 400);
+  }
+  const userId = req.user?._id;
+  const updatedUser = userModel
+    .findByIdAndUpdate(userId, { $set: { fullName, email } }, { new: true })
+    .select("-password");
+  res
+    .status(200)
+    .json(new apiResponse(200, updatedUser, "User Info Updated Successfully!"));
+});
+
+module.exports.updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.avatar[0]?.path; //yha isrf ek file mai isliye file and not files
+  if (!avatarLocalPath) {
+    throw new apiError("Avatar is required", 400);
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!avatar.url) {
+    throw new apiError(400, "Error while uploading Avatar");
+  }
+
+  const userId = req.user?._id;
+  const updatedUser = await userModel
+    .findByIdAndUpdate(userId, { $set: { avatar: avatar.url } }, { new: true })
+    .select("-password");
+
+  res
+    .status(200)
+    .json(
+      new apiResponse(200, updatedUser, "User Avatar Updated Successfully!")
+    );
+});
+
+module.exports.updateUserCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.coverImage[0]?.path;
+  if (!coverImageLocalPath) {
+    throw new apiError(401, "Cover Image Required");
+  }
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  if (!coverImage.url) {
+    throw new apiError(500, "Internal Server Error");
+  }
+  const userId = req.user?._id;
+  const updatedUser = await userModel
+    .findByIdAndUpdate(
+      userId,
+      { $set: { coverImage: coverImage.url } },
+      { new: true }
+    )
+    .select("-password");
+
+  return res
+    .status(200)
+    .json(new apiResponse(200, updatedUser, "CoverImage Updated Successfully"));
+});
