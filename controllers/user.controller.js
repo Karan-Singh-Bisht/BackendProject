@@ -234,7 +234,7 @@ module.exports.updateUserInfo = asyncHandler(async (req, res) => {
 });
 
 module.exports.updateUserAvatar = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.avatar[0]?.path; //yha isrf ek file mai isliye file and not files
+  const avatarLocalPath = req.file?.avatar[0]?.path; //yha sirf ek file hai isliye file and not files
   if (!avatarLocalPath) {
     throw new apiError("Avatar is required", 400);
   }
@@ -277,4 +277,68 @@ module.exports.updateUserCoverImage = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new apiResponse(200, updatedUser, "CoverImage Updated Successfully"));
+});
+
+module.exports.getUserChannelInfo = asyncHandler(async (req, res) => {
+  const { userName } = req.params;
+  console.log(userName);
+  if (!userName?.trim()) {
+    throw new apiError(400, "User does not exist!");
+  }
+
+  const channel = await userModel.aggregate([
+    { $match: { userName: userName?.toLowerCase() } },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        susbscriberCount: {
+          $size: "$subscribers",
+        },
+        channelsSubscribedTo: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        fullName: 1,
+        email: 1,
+        userName: 1,
+        avatar: 1,
+        coverImage: 1,
+        susbscriberCount: 1,
+        channelsSubscribedTo: 1,
+        isSubscribed: 1,
+      },
+    },
+  ]);
+  console.log(channel);
+  if (!channel?.length) {
+    throw new apiError(404, "Channel not found");
+  }
+  return res
+    .status(200)
+    .json(new apiResponse(200, channel[0], "user channel found!"));
 });
